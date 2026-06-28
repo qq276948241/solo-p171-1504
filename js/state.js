@@ -5,6 +5,7 @@ window.APP_STATE = (function () {
   const STORAGE_KEY_CART = 'nax_cafe_cart_v1';
   const STORAGE_KEY_ORDER = 'nax_cafe_order_seq_v1';
   const STORAGE_KEY_LAST = 'nax_cafe_last_order_v1';
+  const STORAGE_KEY_FAV = 'nax_cafe_favorites_v1';
 
   const _listeners = new Set();
 
@@ -16,7 +17,8 @@ window.APP_STATE = (function () {
     orderNote: '',
     activeNoteTags: [],
     lastOrder: null,
-    tableNo: ''
+    tableNo: '',
+    favorites: []
   };
 
   function _initDefaultSizes() {
@@ -60,6 +62,23 @@ window.APP_STATE = (function () {
         _state.lastOrder = JSON.parse(raw);
       }
     } catch (e) {}
+  }
+
+  function _persistFavorites() {
+    try {
+      localStorage.setItem(STORAGE_KEY_FAV, JSON.stringify(_state.favorites));
+    } catch (e) {}
+  }
+
+  function _restoreFavorites() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FAV);
+      if (raw) {
+        _state.favorites = JSON.parse(raw) || [];
+      }
+    } catch (e) {
+      _state.favorites = [];
+    }
   }
 
   function _generateOrderNo() {
@@ -284,10 +303,34 @@ window.APP_STATE = (function () {
     return _state.lastOrder;
   }
 
+  function toggleFavorite(productId) {
+    const idx = _state.favorites.indexOf(productId);
+    if (idx === -1) {
+      _state.favorites.push(productId);
+    } else {
+      _state.favorites.splice(idx, 1);
+    }
+    _persistFavorites();
+    _notify();
+    return idx === -1;
+  }
+
+  function isFavorited(productId) {
+    return _state.favorites.indexOf(productId) !== -1;
+  }
+
+  function getFavorites() {
+    const { getProductById } = window.APP_DATA;
+    return _state.favorites
+      .map(id => getProductById(id))
+      .filter(Boolean);
+  }
+
   function init() {
     _initDefaultSizes();
     _restoreCart();
     _restoreLastOrder();
+    _restoreFavorites();
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -316,6 +359,9 @@ window.APP_STATE = (function () {
     toggleNoteTag,
     submitOrder,
     setTableNo,
-    getLastOrder
+    getLastOrder,
+    toggleFavorite,
+    isFavorited,
+    getFavorites
   };
 })();

@@ -8,11 +8,22 @@ window.ProductCardComponent = (function () {
       <line x1="5" y1="12" x2="19" y2="12"/>
     </svg>`;
 
+  const SVG_HEART_EMPTY = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="#C68B59" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>`;
+
+  const SVG_HEART_FILLED = `
+    <svg viewBox="0 0 24 24" fill="#C68B59" stroke="#C68B59" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>`;
+
   function _renderOne(product, state, index) {
     const { getPrice, getAvailableSizes, formatPrice } = window.APP_DATA;
     const currentSize = state.selectedSizes[product.id] || 'medium';
     const currentPrice = getPrice(product, currentSize);
     const cartQty = window.APP_STATE.getProductCartQty(product.id);
+    const favorited = window.APP_STATE.isFavorited(product.id);
     const sizes = getAvailableSizes(product);
 
     const sizesHTML = sizes.map(s => `
@@ -43,6 +54,10 @@ window.ProductCardComponent = (function () {
         <div class="product-card__img-wrap">
           <img class="product-card__img" src="${product.image}" alt="${product.name}" loading="lazy"
                onerror="this.style.background='linear-gradient(135deg,#F5EEE3,#EFE5D8)';this.style.opacity='0.3'">
+          <button class="product-card__fav" data-action="fav" data-pid="${product.id}"
+                  style="position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.92);box-shadow:0 1px 4px rgba(62,39,35,0.12);display:flex;align-items:center;justify-content:center;z-index:2">
+            ${favorited ? SVG_HEART_FILLED : SVG_HEART_EMPTY}
+          </button>
         </div>
         <div class="product-card__body">
           <h3 class="product-card__name">${product.name}</h3>
@@ -75,6 +90,14 @@ window.ProductCardComponent = (function () {
         const pid = btn.dataset.pid;
         const size = btn.dataset.size;
         window.APP_STATE.setSize(pid, size);
+      });
+    });
+
+    container.querySelectorAll('.product-card__fav').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = btn.dataset.pid;
+        window.APP_STATE.toggleFavorite(pid);
       });
     });
 
@@ -163,5 +186,5 @@ window.ProductCardComponent = (function () {
     window.APP_STATE.subscribe(render);
   }
 
-  return { init, render };
+  return { init, render, renderOne: _renderOne, bindEvents: _bindEvents };
 })();

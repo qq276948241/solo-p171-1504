@@ -38,6 +38,8 @@ window.CartPopupComponent = (function () {
       <path d="M16 10a4 4 0 0 1-8 0"/>
     </svg>`;
 
+  let _inited = false;
+  let _unsub = null;
   let _open = false;
   let _onOrderSuccess = null;
 
@@ -279,19 +281,27 @@ window.CartPopupComponent = (function () {
   }
 
   function init(onOrderSuccess) {
+    if (_inited) return;
+    _inited = true;
+
     setOnOrderSuccess(onOrderSuccess);
 
     document.getElementById('cart-popup-mask').addEventListener('click', () => {
       close();
     });
 
-    window.APP_STATE.subscribe(() => {
+    _unsub = window.APP_STATE.subscribe(() => {
       if (_open) render();
     });
   }
 
+  function destroy() {
+    if (_unsub) { _unsub(); _unsub = null; }
+    _inited = false;
+  }
+
   return {
-    init, open, close, isOpen, render,
+    init, destroy, open, close, isOpen, render,
     setOnOrderSuccess
   };
 })();

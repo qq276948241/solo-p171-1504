@@ -2,6 +2,9 @@
    页面 - 菜单页
    ================================ */
 window.MenuPage = (function () {
+  let _inited = false;
+  let _unsubFav = null;
+
   const FAV_SECTION_ID = 'favorites-section';
 
   const SVG_HEART_FILLED = `
@@ -28,7 +31,9 @@ window.MenuPage = (function () {
     const container = _ensureFavContainer();
 
     if (!favorites.length) {
-      container.outerHTML = '';
+      if (container.parentNode) {
+        container.outerHTML = '';
+      }
       const productList = document.getElementById('product-list');
       if (productList) {
         productList.style.paddingTop = '';
@@ -63,6 +68,9 @@ window.MenuPage = (function () {
   }
 
   function init() {
+    if (_inited) return;
+    _inited = true;
+
     window.HeaderComponent.init();
     window.ProductCardComponent.init();
     window.CartBarComponent.init(() => {
@@ -73,12 +81,27 @@ window.MenuPage = (function () {
     });
 
     renderFavorites();
-    window.APP_STATE.subscribe(renderFavorites);
+
+    const { favStore } = window.APP_STATE._stores || {};
+    if (favStore) {
+      _unsubFav = favStore.subscribe(() => {
+        renderFavorites();
+        window.ProductCardComponent.refreshHearts(document.getElementById('product-list'));
+      });
+    } else {
+      window.APP_STATE.subscribe(renderFavorites);
+    }
   }
 
   function onEnter() {
     renderFavorites();
+    window.ProductCardComponent.refreshHearts();
   }
 
-  return { init, onEnter, renderFavorites };
+  function destroy() {
+    if (_unsubFav) { _unsubFav(); _unsubFav = null; }
+    _inited = false;
+  }
+
+  return { init, destroy, onEnter, renderFavorites };
 })();

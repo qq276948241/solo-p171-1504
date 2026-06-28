@@ -2,6 +2,10 @@
    组件 - 商品卡片 ProductCard
    ================================ */
 window.ProductCardComponent = (function () {
+  let _inited = false;
+  let _unsubGlobal = null;
+  let _unsubFav = null;
+
   const SVG_PLUS = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
       <line x1="12" y1="5" x2="12" y2="19"/>
@@ -72,6 +76,18 @@ window.ProductCardComponent = (function () {
     `;
   }
 
+  /* ------------------------------------------------------------
+     局部更新：只刷新所有爱心图标的空心/实心状态，不重画整张卡片
+     ------------------------------------------------------------ */
+  function _refreshHearts(root) {
+    const scope = root || document;
+    scope.querySelectorAll('.product-card__fav').forEach(btn => {
+      const pid = btn.dataset.pid;
+      const favorited = window.APP_STATE.isFavorited(pid);
+      btn.innerHTML = favorited ? SVG_HEART_FILLED : SVG_HEART_EMPTY;
+    });
+  }
+
   function render() {
     const state = window.APP_STATE.getState();
     const { getProductsByCategory } = window.APP_DATA;
@@ -80,45 +96,61 @@ window.ProductCardComponent = (function () {
     const html = products.map((p, i) => _renderOne(p, state, i)).join('');
     const container = document.getElementById('product-list');
     container.innerHTML = html;
-    _bindEvents(container);
   }
 
-  function _bindEvents(container) {
-    container.querySelectorAll('.product-card__size').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+  /* ------------------------------------------------------------
+     事件委托：在容器上绑一次 click，利用冒泡分发所有按钮动作
+     - 爱心：stopPropagation 拦截，防止触发加购
+     - 加购/规格/数量控制：允许正常冒泡到卡片（如果卡片上有监听的话）
+     ------------------------------------------------------------ */
+  function _delegateEvents(container) {
+    if (!container) return;
+    if (container.__productCardDelegated) return;
+    container.__productCardDelegated = true;
+
+    container.addEventListener('click', (e) => {
+      const sizeBtn = e.target.closest('.product-card__size');
+      if (sizeBtn) {
         e.stopPropagation();
-        const pid = btn.dataset.pid;
-        const size = btn.dataset.size;
+        const pid = sizeBtn.dataset.pid;
+        const size = sizeBtn.dataset.size;
         window.APP_STATE.setSize(pid, size);
-      });
-    });
+        return;
+      }
 
-    container.querySelectorAll('.product-card__fav').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      const favBtn = e.target.closest('.product-card__fav');
+      if (favBtn) {
         e.stopPropagation();
-        const pid = btn.dataset.pid;
+        const pid = favBtn.dataset.pid;
         window.APP_STATE.toggleFavorite(pid);
-      });
-    });
+        return;
+      }
 
-    container.querySelectorAll('.add-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      const addBtn = e.target.closest('.add-btn');
+      if (addBtn) {
         e.stopPropagation();
-        const pid = btn.dataset.pid;
-        _handleAdd(pid, btn);
-      });
-    });
+        const pid = addBtn.dataset.pid;
+        _handleAdd(pid, addBtn);
+        return;
+      }
 
-    container.querySelectorAll('.qty-ctrl').forEach(ctrl => {
-      const pid = ctrl.dataset.pid;
-      ctrl.querySelector('.qty-ctrl__btn--plus').addEventListener('click', (e) => {
+      const qtyPlus = e.target.closest('.qty-ctrl__btn--plus');
+      if (qtyPlus) {
         e.stopPropagation();
+        const ctrl = qtyPlus.closest('.qty-ctrl');
+        const pid = ctrl.dataset.pid;
         _handleAdd(pid, ctrl);
-      });
-      ctrl.querySelector('.qty-ctrl__btn--minus').addEventListener('click', (e) => {
+        return;
+      }
+
+      const qtyMinus = e.target.closest('.qty-ctrl__btn--minus');
+      if (qtyMinus) {
         e.stopPropagation();
+        const ctrl = qtyMinus.closest('.qty-ctrl');
+        const pid = ctrl.dataset.pid;
         _handleMinus(pid);
-      });
+        return;
+      }
     });
   }
 
@@ -181,10 +213,42 @@ window.ProductCardComponent = (function () {
     } catch (e) {}
   }
 
-  function init() {
-    render();
-    window.APP_STATE.subscribe(render);
+  function bindEvents(container) {
+    _delegateEvents(container);
   }
 
-  return { init, render, renderOne: _renderOne, bindEvents: _bindEvents };
+  function init() {
+    if (_inited) return;
+    _inited = true;
+
+    render();
+    _delegateEvents(document.getElementById('product-list'));
+    _delegateEvents(document.getElementById('fav-product-list'));
+
+    _unsubGlobal = window.APP_STATE.subscribe(() => {
+      render();
+      _delegateEvents(document.getElementById('fav-product-list'));
+    });
+
+    const { favStore } = window.APP_STATE._stores || {};
+    if (favStore) {
+      _unsubFav = favStore.subscribe(() => {
+        _refreshHearts(document.getElementById('product-list'));
+        _refreshHearts(document.getElementById('fav-product-list'));
+      });
+    }
+  }
+
+  function destroy() {
+    if (_unsubGlobal) { _unsubGlobal(); _unsubGlobal = null; }
+    if (_unsubFav)   { _unsubFav();   _unsubFav = null; }
+    _inited = false;
+  }
+
+  return {
+    init, destroy, render,
+    renderOne: _renderOne,
+    bindEvents,
+    refreshHearts: _refreshHearts
+  };
 })();

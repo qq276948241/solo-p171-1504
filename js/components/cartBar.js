@@ -2,6 +2,9 @@
    组件 - 底部购物车栏 CartBar
    ================================ */
 window.CartBarComponent = (function () {
+  let _inited = false;
+  let _unsub = null;
+
   const SVG_CART = `
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="9" cy="21" r="1.5"/>
@@ -62,10 +65,18 @@ window.CartBarComponent = (function () {
   }
 
   function init(onOpenCart) {
+    if (_inited) return;
+    _inited = true;
+
     setOnOpenCart(onOpenCart);
     render();
-    window.APP_STATE.subscribe(render);
+    _unsub = window.APP_STATE.subscribe(render);
   }
 
-  return { init, render, setOnOpenCart };
+  function destroy() {
+    if (_unsub) { _unsub(); _unsub = null; }
+    _inited = false;
+  }
+
+  return { init, destroy, render, setOnOpenCart };
 })();

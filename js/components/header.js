@@ -2,6 +2,9 @@
    组件 - 顶部导航 Header
    ================================ */
 window.HeaderComponent = (function () {
+  let _inited = false;
+  let _unsub = null;
+
   const SVG_COFFEE_CUP = `
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
@@ -47,9 +50,16 @@ window.HeaderComponent = (function () {
   }
 
   function init() {
+    if (_inited) return;
+    _inited = true;
     render();
-    window.APP_STATE.subscribe(render);
+    _unsub = window.APP_STATE.subscribe(render);
   }
 
-  return { init, render };
+  function destroy() {
+    if (_unsub) { _unsub(); _unsub = null; }
+    _inited = false;
+  }
+
+  return { init, destroy, render };
 })();
